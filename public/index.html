@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NEXUS — Criminal Network Intelligence</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #d4d8de;
+      min-height: 100vh;
+    }
+
+    /* ── NAV ── */
+    nav {
+      background: #111;
+      border-bottom: 2px solid #f5a623;
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-size: 22px;
+      font-weight: 900;
+      color: #f5a623;
+      letter-spacing: 3px;
+    }
+
+    .nav-logo span {
+      color: #555;
+      font-size: 13px;
+      margin-left: 12px;
+      letter-spacing: 1px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      background: transparent;
+      border: 1px solid #333;
+      color: #888;
+      padding: 8px 20px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+
+    .nav-btn.active {
+      background: #f5a623;
+      border-color: #f5a623;
+      color: #000;
+      font-weight: 700;
+    }
+
+    /* ── PAGES ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── MAP PAGE ── */
+    .map-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: calc(100vh - 57px);
+    }
+
+    .sidebar {
+      background: #111;
+      border-right: 1px solid #222;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .sidebar-title {
+      color: #f5a623;
+      font-size: 11px;
+      letter-spacing: 2px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .stat-box {
+      background: #1a1a1a;
+      border: 1px solid #222;
+      padding: 12px;
+      border-radius: 3px;
+    }
+
+    .stat-val {
+      font-size: 22px;
+      font-weight: 900;
+      color: #f5a623;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: #555;
+      margin-top: 3px;
+      letter-spacing: 1px;
+    }
+
+    .district-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .district-card {
+      background: #1a1a1a;
+      border: 1px solid #222;
+      border-left: 3px solid #333;
+      padding: 12px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .district-card:hover {
+      background: #222;
+      border-color: #f5a623;
+    }
+
+    .district-card.critical { border-left-color: #f54b4b; }
+    .district-card.high     { border-left-color: #f5a623; }
+    .district-card.moderate { border-left-color: #f5e623; }
+    .district-card.low      { border-left-color: #4bf58a; }
+
+    .district-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .district-state {
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 6px;
+    }
+
+    .district-score {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .score-bar-bg {
+      flex: 1;
+      height: 4px;
+      background: #222;
+      border-radius: 2px;
+      margin-right: 8px;
+    }
+
+    .score-bar {
+      height: 100%;
+      border-radius: 2px;
+    }
+
+    .score-num {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 9px;
+      padding: 2px 7px;
+      border-radius: 2px;
+      letter-spacing: 1px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .badge.critical { background: #f54b4b22; color: #f54b4b; }
+    .badge.high     { background: #f5a62322; color: #f5a623; }
+    .badge.moderate { background: #f5e62322; color: #f5e623; }
+    .badge.low      { background: #4bf58a22; color: #4bf58a; }
+
+    #map {
+      height: 100%;
+      background: #0a0a0a;
+    }
+
+    /* ── REPORT PAGE ── */
+    .report-layout {
+      max-width: 860px;
+      margin: 40px auto;
+      padding: 0 24px;
+    }
+
+    .report-header {
+      margin-bottom: 32px;
+    }
+
+    .report-header h2 {
+      font-size: 26px;
+      font-weight: 900;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .report-header p {
+      color: #555;
+      font-size: 13px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 11px;
+      color: #f5a623;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    input, select, textarea {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      color: #d4d8de;
+      padding: 11px 14px;
+      font-family: inherit;
+      font-size: 13px;
+      border-radius: 3px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: #f5a623;
+    }
+
+    select option {
+      background: #1a1a1a;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    .submit-btn {
+      background: #f5a623;
+      border: none;
+      color: #000;
+      padding: 14px 32px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+
+    .submit-btn:hover { background: #e09520; }
+    .submit-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+    .alert {
+      padding: 14px 18px;
+      border-radius: 3px;
+      font-size: 13px;
+      margin-top: 16px;
+      display: none;
+    }
+
+    .alert.success {
+      background: #0e1a0e;
+      border: 1px solid #4bf58a44;
+      color: #4bf58a;
+      display: block;
+    }
+
+    .alert.error {
+      background: #1a0e0e;
+      border: 1px solid #f54b4b44;
+      color: #f54b4b;
+      display: block;
+    }
+
+    /* ── AUDIT PAGE ── */
+    .audit-layout {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 24px;
+    }
+
+    .audit-header {
+      margin-bottom: 24px;
+    }
+
+    .audit-header h2 {
+      font-size: 26px;
+      font-weight: 900;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .audit-header p { color: #555; font-size: 13px; }
+
+    .audit-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .audit-table th {
+      background: #1a1a1a;
+      color: #f5a623;
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 10px;
+      letter-spacing: 1px;
+      border-bottom: 1px solid #222;
+    }
+
+    .audit-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #1a1a1a;
+      color: #888;
+      vertical-align: top;
+    }
+
+    .audit-table tr:hover td { background: #111; color: #d4d8de; }
+
+    .op-badge {
+      font-size: 9px;
+      padding: 2px 7px;
+      border-radius: 2px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .op-INSERT { background: #0e1a0e; color: #4bf58a; }
+    .op-UPDATE { background: #1a140e; color: #f5a623; }
+    .op-DELETE { background: #1a0e0e; color: #f54b4b; }
+
+    .json-data {
+      font-size: 10px;
+      color: #3d6b4a;
+      max-width: 300px;
+      word-break: break-all;
+    }
+
+    /* ── LOADING ── */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: #555;
+      font-size: 13px;
+      letter-spacing: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    NEXUS
+    <span>// Criminal Network Intelligence Database</span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-btn active" onclick="showPage('map')">Threat Map</button>
+    <button class="nav-btn" onclick="showPage('report')">Report Incident</button>
+    <button class="nav-btn" onclick="showPage('audit')">Audit Log</button>
+  </div>
+</nav>
+
+<!-- PAGE 1: MAP -->
+<div id="page-map" class="page active">
+  <div class="map-layout">
+    <div class="sidebar">
+      <div class="sidebar-title">National Threat Overview</div>
+      <div class="stat-grid" id="stats">
+        <div class="stat-box">
+          <div class="stat-val" id="stat-districts">—</div>
+          <div class="stat-label">Districts Tracked</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-critical">—</div>
+          <div class="stat-label">Critical Zones</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-victims">—</div>
+          <div class="stat-label">Total Victims</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-incidents">—</div>
+          <div class="stat-label">Total Incidents</div>
+        </div>
+      </div>
+      <div class="sidebar-title">Districts by Threat</div>
+      <div class="district-list" id="district-list">
+        <div class="loading">LOADING DATABASE...</div>
+      </div>
+    </div>
+    <div id="map"></div>
+  </div>
+</div>
+
+<!-- PAGE 2: REPORT -->
+<div id="page-report" class="page">
+  <div class="report-layout">
+    <div class="report-header">
+      <h2>Report New Incident</h2>
+      <p>All fields are passed directly to sp_report_incident stored procedure. The database updates threat scores automatically.</p>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Incident Title</label>
+        <input type="text" id="f-title" placeholder="e.g. Minor girls rescued from railway station"/>
+      </div>
+      <div class="form-group">
+        <label>Incident Date</label>
+        <input type="date" id="f-date"/>
+      </div>
+      <div class="form-group">
+        <label>Location</label>
+        <select id="f-location">
+          <option value="">Loading locations...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Incident Type</label>
+        <select id="f-type">
+          <option value="recruitment">Recruitment</option>
+          <option value="transportation">Transportation</option>
+          <option value="exploitation">Exploitation</option>
+          <option value="sale">Sale</option>
+          <option value="forced_labour">Forced Labour</option>
+          <option value="sexual_exploitation">Sexual Exploitation</option>
+          <option value="organ_trafficking">Organ Trafficking</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Severity (1-5)</label>
+        <select id="f-severity">
+          <option value="1">1 — Minor</option>
+          <option value="2">2 — Low</option>
+          <option value="3">3 — Moderate</option>
+          <option value="4">4 — High</option>
+          <option value="5">5 — Critical</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Victims Count</label>
+        <input type="number" id="f-victims" min="0" value="1"/>
+      </div>
+      <div class="form-group">
+        <label>Suspects Count</label>
+        <input type="number" id="f-suspects" min="0" value="1"/>
+      </div>
+      <div class="form-group full">
+        <label>Source</label>
+        <input type="text" id="f-source" placeholder="e.g. NCRB 2024 / Police FIR / NGO Report"/>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" onclick="submitReport()">
+      Submit Incident Report
+    </button>
+    <div class="alert" id="alert-box"></div>
+  </div>
+</div>
+
+<!-- PAGE 3: AUDIT LOG -->
+<div id="page-audit" class="page">
+  <div class="audit-layout">
+    <div class="audit-header">
+      <h2>Audit Trail</h2>
+      <p>Every database change recorded automatically by triggers and stored procedures. Application has zero write access to this table.</p>
+    </div>
+    <table class="audit-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Table</th>
+          <th>Operation</th>
+          <th>Changed By</th>
+          <th>Timestamp</th>
+          <th>Data Snapshot</th>
+        </tr>
+      </thead>
+      <tbody id="audit-body">
+        <tr><td colspan="6" class="loading">LOADING AUDIT LOG...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ── Colour map ───────────────────────────────────
+const COLOURS = {
+  critical: '#f54b4b',
+  high:     '#f5a623',
+  moderate: '#f5e623',
+  low:      '#4bf58a'
+};
+
+// ── Map setup ────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([22.5, 82.5], 5);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO',
+  maxZoom: 18
+}).addTo(map);
+
+// ── Page switching ───────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.target.classList.add('active');
+
+  if (name === 'audit') loadAudit();
+  if (name === 'map') setTimeout(() => map.invalidateSize(), 100);
+}
+
+// ── Load threat data ─────────────────────────────
+async function loadThreats() {
+  try {
+    const res  = await fetch('/api/threats');
+    const data = await res.json();
+
+    // Stats
+    const critical  = data.filter(d => d.threat_level === 'critical').length;
+    const victims   = data.reduce((s, d) => s + d.victim_count, 0);
+    const incidents = data.reduce((s, d) => s + d.incident_count, 0);
+
+    document.getElementById('stat-districts').textContent = data.length;
+    document.getElementById('stat-critical').textContent  = critical;
+    document.getElementById('stat-victims').textContent   = victims;
+    document.getElementById('stat-incidents').textContent = incidents;
+
+    // Sidebar list
+    const list = document.getElementById('district-list');
+    list.innerHTML = '';
+
+    data.forEach(d => {
+      const color = COLOURS[d.threat_level] || '#555';
+      const card  = document.createElement('div');
+      card.className = `district-card ${d.threat_level}`;
+      card.innerHTML = `
+        <div class="badge ${d.threat_level}">${d.threat_level}</div>
+        <div class="district-name">#${d.national_rank} ${d.district}</div>
+        <div class="district-state">${d.state}</div>
+        <div class="district-score">
+          <div class="score-bar-bg">
+            <div class="score-bar"
+              style="width:${d.threat_score}%;background:${color}"></div>
+          </div>
+          <span class="score-num" style="color:${color}">
+            ${d.threat_score}
+          </span>
+        </div>
+        <div style="font-size:10px;color:#555;margin-top:6px">
+          ${d.incident_count} incidents · ${d.victim_count} victims
+        </div>
+      `;
+      card.onclick = () => map.setView([d.latitude, d.longitude], 9);
+      list.appendChild(card);
+
+      // Map marker
+      const circle = L.circleMarker([d.latitude, d.longitude], {
+        radius:      Math.max(10, d.threat_score / 8),
+        fillColor:   color,
+        color:       color,
+        weight:      2,
+        opacity:     0.9,
+        fillOpacity: 0.35
+      }).addTo(map);
+
+      circle.bindPopup(`
+        <div style="font-family:'Courier New',monospace;
+                    background:#111;color:#d4d8de;
+                    padding:14px;min-width:220px;
+                    border:1px solid ${color}">
+          <div style="color:${color};font-weight:900;
+                      font-size:15px;margin-bottom:6px">
+            ${d.district}
+          </div>
+          <div style="color:#888;font-size:11px;
+                      margin-bottom:10px">${d.state}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;
+                      gap:8px;font-size:12px">
+            <div>
+              <div style="color:${color};font-size:18px;
+                          font-weight:900">${d.threat_score}</div>
+              <div style="color:#555;font-size:10px">Threat Score</div>
+            </div>
+            <div>
+              <div style="color:#fff;font-size:18px;
+                          font-weight:900">#${d.national_rank}</div>
+              <div style="color:#555;font-size:10px">National Rank</div>
+            </div>
+            <div>
+              <div style="color:#fff">${d.incident_count}</div>
+              <div style="color:#555;font-size:10px">Incidents</div>
+            </div>
+            <div>
+              <div style="color:#fff">${d.victim_count}</div>
+              <div style="color:#555;font-size:10px">Victims</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;font-size:10px;color:#444">
+            Last computed: ${new Date(d.last_computed).toLocaleString()}
+          </div>
+        </div>
+      `, { className: 'dark-popup' });
+    });
+
+  } catch (err) {
+    document.getElementById('district-list').innerHTML =
+      `<div style="color:#f54b4b;font-size:12px">
+        Error loading data: ${err.message}
+      </div>`;
+  }
+}
+
+// ── Load locations for form ──────────────────────
+async function loadLocations() {
+  try {
+    const res  = await fetch('/api/locations');
+    const data = await res.json();
+    const sel  = document.getElementById('f-location');
+    sel.innerHTML = '<option value="">Select location...</option>';
+    data.forEach(l => {
+      sel.innerHTML +=
+        `<option value="${l.location_id}">
+          ${l.name} — ${l.district}, ${l.state}
+        </option>`;
+    });
+  } catch (err) {
+    console.error('Failed to load locations:', err);
+  }
+}
+
+// ── Submit incident report ───────────────────────
+async function submitReport() {
+  const btn   = document.getElementById('submit-btn');
+  const alert = document.getElementById('alert-box');
+
+  const title     = document.getElementById('f-title').value.trim();
+  const date      = document.getElementById('f-date').value;
+  const locationId= document.getElementById('f-location').value;
+  const type      = document.getElementById('f-type').value;
+  const severity  = document.getElementById('f-severity').value;
+  const victims   = document.getElementById('f-victims').value;
+  const suspects  = document.getElementById('f-suspects').value;
+  const source    = document.getElementById('f-source').value.trim();
+
+  if (!title || !date || !locationId || !source) {
+    alert.className = 'alert error';
+    alert.textContent = 'Please fill in all required fields.';
+    return;
+  }
+
+  btn.disabled     = true;
+  btn.textContent  = 'Submitting...';
+  alert.className  = 'alert';
+  alert.textContent= '';
+
+  try {
+    const res  = await fetch('/api/report', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({
+        title, date,
+        location_id: parseInt(locationId),
+        type, severity : parseInt(severity),
+        victims : parseInt(victims),
+        suspects: parseInt(suspects),
+        source
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert.className  = 'alert success';
+      alert.textContent= '✓ ' + data.message +
+        ' Switch to Threat Map to see updated scores.';
+      // Reset form
+      document.getElementById('f-title').value   = '';
+      document.getElementById('f-date').value    = '';
+      document.getElementById('f-source').value  = '';
+      document.getElementById('f-victims').value = '1';
+      document.getElementById('f-suspects').value= '1';
+    } else {
+      alert.className  = 'alert error';
+      alert.textContent= 'Error: ' + (data.error || 'Unknown error');
+    }
+  } catch (err) {
+    alert.className  = 'alert error';
+    alert.textContent= 'Connection error: ' + err.message;
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Submit Incident Report';
+  }
+}
+
+// ── Load audit log ───────────────────────────────
+async function loadAudit() {
+  try {
+    const res  = await fetch('/api/audit');
+    const data = await res.json();
+    const body = document.getElementById('audit-body');
+    body.innerHTML = '';
+
+    data.forEach(row => {
+      const tr = document.createElement('tr');
+      let newData = '';
+      try {
+        const parsed = typeof row.new_data === 'string'
+          ? JSON.parse(row.new_data) : row.new_data;
+        newData = JSON.stringify(parsed, null, 1)
+          .replace(/\n/g, ' ')
+          .substring(0, 120) + '...';
+      } catch { newData = row.new_data || '—'; }
+
+      tr.innerHTML = `
+        <td style="color:#555">${row.log_id}</td>
+        <td style="color:#d4d8de">${row.table_name}</td>
+        <td>
+          <span class="op-badge op-${row.operation}">
+            ${row.operation}
+          </span>
+        </td>
+        <td style="color:#888">${row.changed_by}</td>
+        <td style="color:#555;font-size:11px">
+          ${new Date(row.changed_at).toLocaleString()}
+        </td>
+        <td class="json-data">${newData}</td>
+      `;
+      body.appendChild(tr);
+    });
+  } catch (err) {
+    document.getElementById('audit-body').innerHTML =
+      `<tr><td colspan="6" style="color:#f54b4b">
+        Error: ${err.message}
+      </td></tr>`;
+  }
+}
+
+// ── Set default date to today ────────────────────
+document.getElementById('f-date').valueAsDate = new Date();
+
+// ── Init ─────────────────────────────────────────
+loadThreats();
+loadLocations();
+</script>
+</body>
+</html>
